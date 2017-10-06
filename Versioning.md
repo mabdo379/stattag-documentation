@@ -1,8 +1,8 @@
-#Versioning
+# Versioning
 
 The following approach is used by the StatTag development team to manage versioning for releases.
 
-##Windows
+## Windows
 All code is developed using C#, which has 4 locations for version number parts.  We use a custom mix of [Microsoft's assembly versioning] (https://docs.microsoft.com/en-us/dotnet/framework/app-domains/assembly-versioning) and [Semantic Versioning](http://semver.org).
 
 StatTag version numbers are composed as:
