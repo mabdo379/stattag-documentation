@@ -6,6 +6,6 @@ This is the repository for detailed documentation about the StatTag software.  I
 1. Development Practices
     1. git
     2. [Versioning](Versioning.md)
-    3. Packaging
+    3. [Release Checklist](Releases.md)
 2. Architecture and Design
     1. [File Monitoring](FileMonitoring.md)

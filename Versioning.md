@@ -41,7 +41,7 @@ RDotNet | Increment BUILD for each release containing custom code changes.  Othe
 ScintillaNET | Increment BUILD for each release containing custom code changes.  Otherwise, leave original version.
 
 ## Tracking Releases
-We want to track which versions of each assembly go into a release.  To do that, the main StatTag repository for each platform will have a RELEASE.md file that records each assembly version in a particular build.  This will be tracked for all releases - even beta builds - and should be updated during the release process.
+We want to track which versions of each assembly go into a release.  To do that, the main StatTag repository for each platform will have a CHANGELOG.md file that records each assembly version in a particular build.  This will be tracked for all releases - even beta builds - and should be updated during the release process.
 
 ## Release Notes
 For now, all bug fixes, enhancements, etc. are tracked on an internal JIRA instance used by the development team, although GitHub will be an important source of bug/request tracking as well.  For each versioned release that is made available to the public, we will have an entry in RELEASE.md that describes the list of changes specific to that build.
