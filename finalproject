@@ -1,0 +1,607 @@
+/* Final Project */ 
+/* Mona Abdo */ 
+
+%web_drop_table(WORK.moledata);
+
+
+FILENAME REFFILE '/folders/myfolders/finalproject/Mole Count Data 2004-2008.xls';
+/* importing the data */ 
+PROC IMPORT DATAFILE=REFFILE
+DBMS=XLS
+OUT=WORK.moledata;
+GETNAMES=YES;
+RUN;
+
+
+/* contents of the data */ 
+PROC CONTENTS DATA=WORK.moledata; RUN;
+
+
+%web_open_table(WORK.moledata);
+
+
+/* formatting the variables */ 
+proc format;
+/* gender */ 
+value genderfmt    1="Female" 
+                   2="Male";
+/* race */ 
+value hispanicfmt  0="No" 
+                   1="Yes";
+/* hair color */ 
+value haircolorfmt 1="Blonde" 
+                   2="Red" 
+                   3="Brown" 
+                   4="Black";
+/* eye color */ 
+value eyecolorfmt  1="Blue, green or combination" 
+                   2="Light/dark brown" 
+                   3="Hazel";
+/* oca2 allele */
+value oca2fmt      0="gg" 
+                   1="ga" 
+                   2="aa"
+                   9="Missing";
+
+run;
+/* applying the formats to the data and creating the overall variable to use in proc tabulate */ 
+data moledata;
+set moledata;
+format gender genderfmt. hispanic hispanicfmt. haircolor haircolorfmt. eyecolor eyecolorfmt. oca2_status oca2fmt.;
+run;
+
+/* basic characteristics */ 
+/* frequencies and percentages of categorical variables */
+proc freq data = moledata;
+tables  eyecolor gender haircolor hispanic oca2_status /chisq ;
+run;
+
+
+/* means and standard deviations for continuous variables and plots to look at the distribution */
+proc univariate data = moledata;
+var number_vacs_birth_thru_2005  number_vacs__birth_thru_2006 number_vacs__birth_thru_2007 baseskincolor molecount2004 molecount2005 molecount2006 molecount2007 molecount2008;
+Histogram;
+run;
+
+/* by exposure of interest */ 
+proc sort data = moledata; 
+by oca2_status;
+run;
+proc freq data =moledata;
+by oca2_status;
+tables eyecolor gender haircolor hispanic;
+run;
+
+
+/* creating the outcome variable */
+/* the difference between the baseline and the average of the post-baseline values */
+/* molecount2004 is the baseline */
+/* average between molecount from 2005-2008 */
+/* creating the average number of vacations */ 
+
+data moledata1;
+set moledata ;
+/* average between 2005-2008 */ 
+avermole= mean(molecount2005, molecount2006, molecount2007, molecount2008);
+/* difference between baseline molecount(2004) and the average of the rest (avermole)*/
+/* missing if baseline data is missing or if all follow-up data are missing */ 
+diffmole=avermole-molecount2004;
+/* average number of vacation */ 
+avervac=mean(number_vacs_birth_thru_2005,number_vacs__birth_thru_2006,number_vacs__birth_thru_2007);
+label avermole="Average mole count from 2005-2008"
+      avervac="Average Number of Vacation"
+      diffmole="Difference in mole between baseline and average of the follow-up"
+  haircolor="Hair Color"
+  Gender="Gender"
+  oca2_status="OCA2 Status"
+  hispanic="Hispanic"
+  eyecolor="Eye Color"
+  baseskincolor="Base Skin Color";  
+run;
+      
+/* check to see if the variables were created correctly */ 
+proc print data = moledata1;
+var molecount2004 molecount2005 molecount2006 molecount2007 molecount2008 avermole diffmole
+number_vacs_birth_thru_2005 number_vacs__birth_thru_2006 number_vacs__birth_thru_2007 avervac;
+run;
+
+
+/* average vacation and difference in mole */ 
+proc univariate data = moledata1;
+var avervac diffmole;
+histogram;
+run;
+/* looking at the variables by outcome of interest */
+/* the mean mole values by gender */
+proc sort data = moledata1;
+by gender;
+run;
+
+proc ttest data = moledata1 ;
+class gender  ;
+var diffmole ;
+run;
+
+/* the mean mole values by hispanic */
+proc sort data = moledata1;
+by hispanic;
+run;
+
+proc ttest data = moledata1;
+class hispanic;
+var diffmole;
+run;
+
+/* the mean mole values by hair color */ 
+proc sort data = moledata1;
+by haircolor;
+run;
+
+proc glm data = moledata1;
+class haircolor;
+model diffmole=haircolor;
+means haircolor;
+run;
+
+/* the mean mole values by eye color */ 
+proc sort data  = moledata1;
+by eyecolor;
+run;
+
+proc glm data = moledata1;
+class eyecolor;
+model diffmole=eyecolor;
+means eyecolor;
+run;
+proc glm data = moledata1;
+class OCA2_STATUS;
+model diffmole=OCA2_STATUS;
+means OCA2_STATUS;
+run;
+/* anova for the baseskin color*/ 
+proc glm data = moledata1;
+model diffmole=baseskincolor;
+run;
+
+/* anova for the average number of vacation */ 
+proc glm data =moledata1;
+model diffmole=avervac;
+run;
+
+/* testing for confounders */ 
+/* determine which variables are associated with the exposure */ 
+/* exposure of interest is oca2status */ 
+/* first variable is gender */ 
+proc freq data = moledata1;
+tables oca2_status* gender/chisq;
+run;
+
+/* race and exposure  */
+proc freq data = moledata1;
+tables oca2_status* hispanic/chisq;
+run;
+
+/* eye color and exposure */ 
+proc freq data = moledata1;
+tables oca2_status*eyecolor/chisq;
+run;
+
+/* baseskincolor and exposure */ 
+proc anova data = moledata1;
+class oca2_Status;
+
+model baseskincolor=oca2_status;
+
+run;
+
+
+/* hair color and exposure */ 
+proc freq data = moledata1;
+tables oca2_status*haircolor/chisq;
+run;
+
+/* average vacation and exposure */ 
+proc anova data = moledata1;
+class oca2_status;
+
+model avervac= oca2_status;
+run;
+
+/* potential confounders associated with outcome */ 
+
+proc reg data = moledata1;
+model diffmole= gender;
+run;
+
+/* race and outcome */
+proc reg data = moledata1;
+model diffmole= hispanic;
+run;
+
+/* eye color and outcome */ 
+proc reg data = moledata1;
+model diffmole=eyecolor;
+run;
+
+/* baseskincolor and outcome */ 
+proc reg data = moledata1;
+model diffmole = baseskincolor;
+run;
+
+/* hair color and outcome */ 
+proc reg data = moledata1;
+model diffmole = haircolor;
+run;
+
+/* average vacation and outcome */ 
+proc reg data = moledata1;
+model diffmole = avervac;
+run;
+
+
+/* creatine dummy variables for the exposure */ 
+/* using aa as the reference */ 
+/* no missing values */ 
+data moledata2;
+set moledata1;
+if oca2_status ne . then do;
+aa= (oca2_status=2);
+ga = (oca2_status=1);
+gg= (oca2_status=0);
+end;
+if hispanic ne . then do;
+Yes = (hispanic=1);
+No = (hispanic=0);
+end;
+if gender ne . then do ;
+Female=(gender=1);
+Male=(gender=2);
+end;
+if haircolor ne . then do;
+blonde=(haircolor=1);
+red=(haircolor=2);
+brown=(haircolor=3);
+black=(haircolor=4);
+end;
+if eyecolor ne . then do;
+Blue_green_combo= (eyecolor=1);
+light_darkbrown = (eyecolor=2);
+hazel=(eyecolor=3);
+end;
+run;
+
+
+
+/* make sure the dummy variables worked */ 
+proc print data = moledata2;
+run;
+
+/* race, eyecolor and haircolor and skincoloe are the only variables associated with the exposure and with the outcome*/ 
+/* determine if the estimate changes by 10% */
+/* without potential confounders*/ 
+proc reg data = moledata2;
+
+model diffmole=ga gg/clb;
+run;
+
+/* adding the race to the model */ 
+proc reg data = moledata2;
+model diffmole= ga gg hispanic;
+run;
+/* adding eye color to the model */ 
+proc reg data = moledata2;
+model diffmole=eyecolor ga gg ;
+run;
+/* adding hair color to the model */ 
+proc reg data = moledata2;
+model diffmole=ga gg haircolor;
+run;
+
+proc glm data=moledata2;
+class oca2_status (ref="aa");
+model diffmole=oca2_status haircolor /solution ss3;
+run;
+
+
+/* adding base skin color to the model */ 
+proc reg data = moledata2;
+model diffmole=ga gg baseskincolor;
+run;
+
+
+      
+/* determining effect modification ( gender, hispanic, baseskincolor, eyecolor, haircolor, vacation)*/ 
+/* by hair color */ 
+proc glm data =moledata2;
+class oca2_status (ref="aa") haircolor (ref="Brown") ;
+model diffmole= oca2_status haircolor haircolor*oca2_status/ solution ss3;
+run;
+
+/* effect modification by gender */ 
+proc glm data =moledata2;
+class oca2_status (ref="aa") gender;
+model diffmole = oca2_status gender oca2_status*gender / solution ss3;
+run;
+
+/* effect modification by race */ 
+proc glm data =moledata2;
+class oca2_status(ref="aa") hispanic (ref="No");
+model diffmole=oca2_status hispanic hispanic*oca2_status/ solution ss3;
+run;
+
+
+/* effect modification by eye color */ 
+proc glm data = moledata2;
+class oca2_status (ref="aa") eyecolor (ref="Light/dark brown");
+model diffmole = oca2_status eyecolor eyecolor*oca2_status/solution ss3;
+run;
+
+/* effect modification by base skin color */ 
+proc glm data = moledata2;
+class oca2_status (ref="aa") ;
+model diffmole = oca2_status baseskincolor baseskincolor*oca2_status/ solution ss3 ;
+run;
+
+
+
+/* effect modification by vacation */ 
+proc glm data = moledata2;
+class oca2_status (ref="aa");
+model diffmole=oca2_status avervac oca2_status*avervac/ solution ss3;
+run;
+
+
+
+
+/* final model with eye color, race, skin color, and hair color in the model (confounders)*/ 
+proc glm data = moledata2 ;
+class oca2_status (ref="aa") eyecolor (ref="Light/dark brown") hispanic (ref="No") haircolor (ref="Black");
+model diffmole= oca2_status eyecolor haircolor hispanic baseskincolor / solution ss3 clparm;
+run;
+
+
+
+
+/* outputting the two models */ 
+
+proc glm data = moledata2 order=formatted plots=diagnostics;
+class oca2_status (ref="aa") eyecolor (ref="Light/dark brown") hispanic (ref="No") haircolor (ref="Black");
+
+model diffmole=oca2_status eyecolor haircolor hispanic baseskincolor/ solution CLPARM ;
+ods output ParameterEstimates=Beta;
+run;
+
+proc reg data = moledata2;
+model diffmole= gg ga eyecolor haircolor hispanic baseskincolor;
+run;
+
+
+data Beta1(drop=LowerCL UpperCL);
+ set Beta(firstobs=2 keep=Parameter Estimate Probt--UpperCL);
+ if LowerCL ne . then
+ CI="("||strip(put(LowerCL,7.2))||","||" "||strip(put(UpperCL,7.2))||")";
+ else CI="-Reference-";
+ pos=index(Parameter,"");
+ covariate=substr(Parameter,1,pos-1);
+ level=strip(substr(Parameter,pos));
+  level = tranwrd(level,"9","0");
+ last_covariate=lag(covariate);
+ if covariate ne last_covariate then num+1;
+run;
+
+
+proc sql;
+create table blank as
+select parameter, covariate, num from Beta1
+where probt=.;
+quit;
+data combine(keep=Estimate Probt CI covariate level num parameter);
+set Beta1 blank;
+run;
+proc sort data=combine; by num level; run;
+ 
+data combine1;
+set combine;
+x=substr(level,3);
+level=x;
+label level="Covariates" estimate="Beta" CI="95% CI" probt="p-Value";
+run;
+proc format;
+value estimate low-<0 = [7.2] 0 = " " 0<-high = [7.2] other = " ";
+value p 0-<0.001 = "<.001" 0.001-1 = [5.3] other = " " ;
+run;
+
+
+data combine2;
+set combine1;
+length covariate1 $ 20.;
+first_word = scan(parameter,1);
+
+if first_word ne "baseskincolor" then do;
+start_pos = length(first_word) + 1;
+   parameter = substr(parameter,start_pos); 
+  end;
+  /* relabeling the covariates*/ 
+ if covariate="oca2_status" then covariate1="OCA2 Status";
+ else if covariate="eyecolor" then covariate1="Eye Color";
+ else if covariate="haircolor" then covariate1="Hair Color";
+ else if covariate="hispanic" then covariate1="Hispanic";
+ else if covariate="baseskincolor" then covariate1="Base Skin Color";
+ if parameter="baseskincolor" then parameter=" ";
+ else parameter=parameter;
+ label covariate1="Covariate";
+ run;
+
+DATA COMBINE3;
+SET COMBINE2;
+IF ESTIMATE=" " THEN DELETE;
+RUN;
+
+title"Adjusted Linear Regression Models";
+proc report data = combine3 out=new_  ;
+column covariate1 parameter estimate ci probt;
+define covariate1 / group;
+
+define probt/ analysis;
+format estimate estimate. probt p.;
+run;
+
+/* unadjusted model */ 
+proc glm data = moledata2 order=formatted;
+class oca2_status (ref="aa") ;
+
+model diffmole=oca2_status / solution CLPARM;;
+ods output ParameterEstimates=Beta4;
+run;
+
+data Beta5(drop=LowerCL UpperCL);
+ set Beta4(firstobs=2 keep=Parameter Estimate Probt--UpperCL);
+ if LowerCL ne . then
+ CI="("||strip(put(LowerCL,7.2))||","||" "||strip(put(UpperCL,7.2))||")";
+ else CI="-Reference-";
+ pos=index(Parameter,"");
+ covariate=substr(Parameter,1,pos-1);
+ level=strip(substr(Parameter,pos));
+  level = tranwrd(level,"9","0");
+ last_covariate=lag(covariate);
+ if covariate ne last_covariate then num+1;
+run;
+proc sql;
+create table blank as
+select paramEter, covariate, num from Beta5
+where probt=.;
+quit;
+data combine4(keep=Estimate Probt CI covariate level num parameter);
+set Beta5 blank;
+run;
+proc sort data=combine; by num level; run;
+ 
+data combine5;
+set combine4;
+x=substr(level,3);
+level=x;
+label level="Covariates" estimate="Beta" CI="95% CI" probt="p-Value";
+run;
+proc format;
+value estimate low-<0 = [7.2] 0 = " " 0<-high = [7.2] other = " ";
+value p 0-<0.001 = "<.001" 0.001-1 = [5.3] other = " " ;
+run;
+
+
+data combine6;
+set combine5;
+length covariate1 $ 20.;
+first_word = scan(parameter,1);
+
+if first_word ne "baseskincolor" then do;
+start_pos = length(first_word) + 1;
+   parameter = substr(parameter,start_pos); 
+  end;
+  /* relabeling the covariates*/ 
+ if covariate="oca2_status" then covariate1="OCA2 Status";
+ 
+ else parameter=parameter;
+ label covariate1="Covariate";
+ run;
+ 
+DATA COMBINE7;
+SET COMBINE6;
+IF ESTIMATE = " " THEN DELETE;
+RUN;
+
+
+proc report data = combine7 out=new1  ;
+column covariate1 parameter estimate ci probt;
+define covariate1 / group ;
+define probt/ analysis;
+
+format estimate estimate.  probt p. ;
+run;
+
+
+
+
+data new1;
+set new1;
+rename covariate1=unadcov;
+rename parameter=unadpar;
+rename estimate=unadparam;
+rename ci=unadci;
+rename probt=unadjprob;
+
+run;
+
+proc contents data=new1;
+run;
+proc contents data = new_;
+run;
+
+
+data newall;
+merge new1 new_;
+
+
+
+
+run;
+
+
+proc print data=newall;
+run;
+
+ods escapechar='^';
+
+ods HTML file="/folders/myfolders/finalproject/table6.HTML"   style=journal;
+title justify=center "Table2:Unadjsuted and Adjusted Regression Model";
+proc report data = newall   spacing=2 split='~' nowd;
+column   ('^S={TEXTDECORATION=underline}Unadjusted Model' unadcov unadpar unadparam unadci unadjprob) blank ('^S={TEXTDECORATION=underline}Adjusted Model' covariate1 parameter estimate ci probt);
+define unadcov / order=freq;
+define covariate1 / group;
+define probt/analysis;
+define unadjprob / analysis;
+ define blank / " " computed format=$1.;
+
+   compute blank;
+      blank = " ";
+   endcomp;
+
+
+
+format estimate estimate.  probt p. ;
+run;
+
+proc REG data=moledata2;
+
+model diffmole = ga gg; 
+ 
+run;
+/* bootstrap with the confounders*/ 
+ods listing close;
+proc surveyselect data=moledata2 out=boot1 seed=100 /* one is the data to be analyzed */
+method=urs samprate=1 outhits rep=10000; *urs does sampling with replacement, rep is # of bootstrap samples;
+run;
+ 
+proc REG data=boot1 outEST=est1(drop=_:) noprint; * est1 is the dataset that will contain all the parameter values for all of the bootstrap samples;
+
+model diffmole= ga gg yes no  blonde red brown black blue_green_combo 
+light_darkbrown hazel baseskincolor;
+
+by replicate;  
+run;
+ proc contents data= est1;run;
+ 
+
+proc univariate plot data=est1; 
+var ga;  
+output out=final pctlpts=2.5, 97.5 pctlpre=ci; 
+run;
+
+proc univariate plot data=est1; 
+var gg;   
+output out=final1 pctlpts=2.5, 97.5 pctlpre=ci; 
+run;
+ 
+proc print data=final; * Output the 95% bootstrap percentile CI;
+run;
+ proc print data = final1;
+ run;
